@@ -122,3 +122,104 @@ code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0
 .btn { background: var(--amber); color: #1a1205; border: none; border-radius: 9px; padding: 9px 16px; font-size: 14px; font-weight: 600; cursor: pointer; }
 .btn:disabled { opacity: 0.6; cursor: default; }
 .brief { white-space: pre-wrap; background: var(--bg); border: 1px solid var(--border); border-radius: 10px; padding: 14px; margin: 14px 0 0; font-size: 13px; line-height: 1.6; color: var(--text); font-family: inherit; }
+
+/* =========================================================================
+   MOBILE (≤767px). Desktop styles above are untouched — everything phone-
+   specific is scoped here, so the desktop layout stays byte-for-byte identical.
+   Mobile chrome (top bar / hamburger / scrim) is hidden by default and only
+   shown inside this block.
+   ========================================================================= */
+.topbar, .scrim, .hamburger { display: none; }
+
+@media (max-width: 768px) {
+  body { font-size: 16px; }                 /* ≥16px so iOS never auto-zooms */
+  .app { display: block; }                  /* drop the desktop side-by-side flex */
+
+  /* ---- Fixed top bar (notch-safe) ---- */
+  .topbar {
+    display: flex; align-items: center; gap: 10px;
+    position: fixed; top: 0; left: 0; right: 0; z-index: 40;
+    height: calc(56px + env(safe-area-inset-top));
+    padding: env(safe-area-inset-top) 12px 0;
+    background: var(--surface); border-bottom: 1px solid var(--border);
+  }
+  .topbar .brand { margin-bottom: 0; }
+  .hamburger {
+    display: flex; flex-direction: column; justify-content: center; gap: 5px;
+    width: 44px; height: 44px; padding: 11px;          /* 44px tap target */
+    background: none; border: none; cursor: pointer; flex-shrink: 0;
+  }
+  .hamburger span { display: block; width: 22px; height: 2px; border-radius: 2px; background: var(--text); }
+
+  /* ---- Slide-in drawer ---- */
+  .side {
+    position: fixed; top: 0; bottom: 0; left: 0; z-index: 50;
+    width: 248px; max-width: 82vw;
+    padding-top: calc(18px + env(safe-area-inset-top));
+    transform: translateX(-100%);
+    transition: transform .22s ease;
+  }
+  .side.open { transform: translateX(0); }
+
+  /* ---- Tap-outside backdrop ---- */
+  .scrim {
+    display: block; position: fixed; inset: 0; z-index: 45;
+    background: rgba(0,0,0,0.55);
+    opacity: 0; pointer-events: none; transition: opacity .22s ease;
+  }
+  .scrim.show { opacity: 1; pointer-events: auto; }
+
+  .nav a { padding: 12px; font-size: 16px; }  /* ≥44px tap targets */
+
+  /* ---- Content clears the fixed top bar + safe areas ---- */
+  .main {
+    padding: calc(56px + env(safe-area-inset-top) + 16px) 16px
+             calc(24px + env(safe-area-inset-bottom));
+  }
+
+  /* ---- Stat cards: clean 2-up (never collapse to 1-up) ---- */
+  .grid { grid-template-columns: 1fr 1fr; gap: 10px; }
+  .stat { padding: 14px; }
+  .stat .v { font-size: 23px; }
+
+  /* ---- Tables → stacked, labeled cards (no horizontal scroll) ----
+     Each <tr> becomes a card; each <td> a "Label … value" row whose label
+     comes from the data-label attribute. The header row is visually hidden. */
+  .tbl { display: block; width: 100%; border: none; background: none; border-radius: 0; }
+  .tbl thead {
+    position: absolute; width: 1px; height: 1px;
+    overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap;
+  }
+  .tbl tbody { display: block; }
+  .tbl tr {
+    display: block;
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 12px; padding: 4px 14px; margin-bottom: 10px;
+  }
+  .tbl td {
+    display: flex; justify-content: space-between; align-items: center; gap: 16px;
+    padding: 10px 0; border-bottom: 1px solid var(--border);
+    font-size: 15px; text-align: right;
+  }
+  .tbl td:last-child { border-bottom: none; }
+  .tbl td::before {
+    content: attr(data-label);
+    flex: 0 0 auto; text-align: left;
+    color: var(--muted); font-size: 13px; font-weight: 500;
+  }
+  /* First cell = card heading: full-width, left-aligned, no label. */
+  .tbl td:first-child {
+    font-size: 16px; font-weight: 600; text-align: left;
+  }
+  .tbl td:first-child::before { display: none; }
+
+  /* ---- Pipeline: stack the stage columns instead of cramming side-by-side ---- */
+  .cols { flex-direction: column; gap: 18px; }
+
+  /* ---- Tap targets ≥44px + readable button ---- */
+  .btn { min-height: 44px; padding: 11px 18px; font-size: 16px; }
+
+  /* ---- Agents office: a touch shorter so the card sits higher on small screens ---- */
+  .office { height: 300px; }
+  .agent-card { padding: 14px; }
+}
