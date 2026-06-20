@@ -39,7 +39,7 @@ export async function GET(req: Request) {
   // 2) Fetch the tab's rows. (values: string[][], first row = headers.)
   const url =
     `https://sheets.googleapis.com/v4/spreadsheets/${encodeURIComponent(id)}` +
-    `/values/${encodeURIComponent(range)}?key=${encodeURIComponent(key)}`
+    `/values/${encodeURIComponent(range)}?valueRenderOption=UNFORMATTED_VALUE&key=${encodeURIComponent(key)}`
   let values: string[][] = []
   try {
     const res = await fetch(url)
@@ -62,33 +62,61 @@ export async function GET(req: Request) {
   return Response.json({ ok: true, rows: Math.max(0, values.length - 1), sent: !!owner })
 }
 
-// Header-aware default summary — works on ANY sheet, so the pipe is provable today.
-// Swap the body for your exact manual rule (e.g. "sum Amount where Status = Paid").
-function summarize(values: string[][]): string {
-  if (!values.length) return '☀️ <b>Daily sheet summary</b>\n\n(The sheet is empty.)'
+// Monthly balance for the "Money — Fact & Plan" 2026 tab.
+// Layout: a row whose column A is a month name (e.g. "JUNE") starts that month's
+// block; inside the block, column C holds income amounts and column F holds
+// spending amounts. Balance = income − spending. Falls back to a generic summary
+// if no month blocks are found, so the route never breaks.
+const MONTHS = [
+  'january', 'february', 'march', 'april', 'may', 'june',
+  'july', 'august', 'september', 'october', 'november', 'december',
+]
 
+function summarize(values: string[][]): string {
+  type Block = { month: string; income: number; spending: number }
+  const blocks: Block[] = []
+  let cur: Block | null = null
+  for (const row of values) {
+    const a = String(row[0] ?? '').trim()
+    if (MONTHS.includes(a.toLowerCase())) {
+      cur = { month: a, income: 0, spending: 0 }
+      blocks.push(cur)
+      continue
+    }
+    if (cur) {
+      const inc = num(row[2]) // column C = income amount
+      const spd = num(row[5]) // column F = spending amount
+      if (inc) cur.income += inc
+      if (spd) cur.spending += spd
+    }
+  }
+
+  if (!blocks.length) return genericSummary(values)
+
+  const fmt = (n: number) => 'MYR ' + Math.round(n).toLocaleString('en-MY')
+  const out: string[] = ['💰 <b>Monthly balance — 2026</b>', '']
+  for (const b of blocks) {
+    const bal = b.income - b.spending
+    out.push(
+      `${bal >= 0 ? '🟢' : '🔴'} <b>${esc(b.month)}</b> — Balance <b>${fmt(bal)}</b>\n` +
+      `   <i>Income ${fmt(b.income)} · Spending ${fmt(b.spending)}</i>`,
+    )
+  }
+  return out.join('\n')
+}
+
+// Generic fallback (header-aware) — used only if the month layout isn't detected.
+function genericSummary(values: string[][]): string {
+  if (!values.length) return '☀️ <b>Daily sheet summary</b>\n\n(The sheet is empty.)'
   const header = values[0]
   const rows = values.slice(1).filter(r => r.some(c => String(c ?? '').trim() !== ''))
   const out: string[] = ['☀️ <b>Daily sheet summary</b>', `📋 ${rows.length} row${rows.length === 1 ? '' : 's'}`]
-
   header.forEach((h, c) => {
-    const parsed = rows.map(r => num(r[c]))
-    const hits = parsed.filter((v): v is number => v !== null)
-    // Treat a column as numeric if ≥60% of non-empty cells parse as numbers → show its total.
+    const hits = rows.map(r => num(r[c])).filter((v): v is number => v !== null)
     const nonEmpty = rows.filter(r => String(r[c] ?? '').trim() !== '').length
     if (nonEmpty > 0 && hits.length >= Math.ceil(nonEmpty * 0.6)) {
-      const total = hits.reduce((s, v) => s + v, 0)
-      out.push(`• <b>${esc(h || `Col ${c + 1}`)}</b>: ${total.toLocaleString('en-MY')}`)
-      return
-    }
-    // Otherwise, if it's a low-cardinality text column (≤8 distinct), show a breakdown.
-    const vals = rows.map(r => String(r[c] ?? '').trim()).filter(Boolean)
-    const distinct = new Set(vals)
-    if (nonEmpty > 0 && distinct.size > 0 && distinct.size <= 8 && distinct.size < vals.length) {
-      const counts = [...distinct].map(v => `${esc(v)}: ${vals.filter(x => x === v).length}`).join(' · ')
-      out.push(`• <b>${esc(h || `Col ${c + 1}`)}</b> — ${counts}`)
+      out.push(`• <b>${esc(h || `Col ${c + 1}`)}</b>: ${hits.reduce((s, v) => s + v, 0).toLocaleString('en-MY')}`)
     }
   })
-
   return out.join('\n')
 }
