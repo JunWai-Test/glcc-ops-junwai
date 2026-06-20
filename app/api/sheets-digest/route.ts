@@ -73,33 +73,48 @@ const MONTHS = [
 ]
 
 function summarize(values: string[][]): string {
-  type Block = { month: string; income: number; spending: number }
+  type Block = {
+    month: string
+    balanceCell: number | null // the sheet's own "Balance" cell (col C of the Balance row)
+    totalCell: number | null   // the sheet's own "Total" spending cell (col F of the same row)
+    incomeSum: number          // fallback: summed income line items (col C)
+    spendSum: number           // fallback: summed spending line items (col F)
+  }
   const blocks: Block[] = []
   let cur: Block | null = null
+
   for (const row of values) {
-    const a = String(row[0] ?? '').trim()
-    if (MONTHS.includes(a.toLowerCase())) {
-      cur = { month: a, income: 0, spending: 0 }
+    const month = String(row[0] ?? '').trim()
+    if (MONTHS.includes(month.toLowerCase())) {
+      cur = { month, balanceCell: null, totalCell: null, incomeSum: 0, spendSum: 0 }
       blocks.push(cur)
       continue
     }
-    if (cur) {
-      const inc = num(row[2]) // column C = income amount
-      const spd = num(row[5]) // column F = spending amount
-      if (inc) cur.income += inc
-      if (spd) cur.spending += spd
-    }
+    if (!cur) continue
+    const labelB = String(row[1] ?? '').trim().toLowerCase() // income-column label
+    const labelE = String(row[4] ?? '').trim().toLowerCase() // spending-column label
+
+    // Read the sheet's own summary cells; otherwise accumulate line items as a fallback.
+    if (labelB === 'balance') cur.balanceCell = num(row[2])
+    else if (labelB !== 'income') { const v = num(row[2]); if (v) cur.incomeSum += v }
+
+    if (labelE === 'total') cur.totalCell = num(row[5])
+    else if (labelE !== 'spending') { const v = num(row[5]); if (v) cur.spendSum += v }
   }
 
   if (!blocks.length) return genericSummary(values)
 
-  const fmt = (n: number) => 'MYR ' + Math.round(n).toLocaleString('en-MY')
+  const fmt = (n: number) =>
+    'MYR ' + n.toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
   const out: string[] = ['💰 <b>Monthly balance — 2026</b>', '']
   for (const b of blocks) {
-    const bal = b.income - b.spending
+    const spending = b.totalCell ?? b.spendSum                 // prefer the sheet's Total
+    const income = b.incomeSum                                 // (sheet prints no income total)
+    const balance = b.balanceCell ?? income - spending         // prefer the sheet's Balance
+    const sign = balance >= 0 ? '🟢' : '🔴'
     out.push(
-      `${bal >= 0 ? '🟢' : '🔴'} <b>${esc(b.month)}</b> — Balance <b>${fmt(bal)}</b>\n` +
-      `   <i>Income ${fmt(b.income)} · Spending ${fmt(b.spending)}</i>`,
+      `${sign} <b>${esc(b.month)}</b> — Balance <b>${fmt(balance)}</b>\n` +
+      `   <i>Income ${fmt(income)} · Spending ${fmt(spending)}</i>`,
     )
   }
   return out.join('\n')
