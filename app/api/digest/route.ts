@@ -1,5 +1,5 @@
 import { sendMessage } from '@/lib/telegram'
-import { getRecords, rm, todayISO, DEAL_CATS, NEW_CATS } from '@/lib/records'
+import { getRecords, rm, todayISO, DEAL_CATS, NEW_CATS, type Rec } from '@/lib/records'
 
 export const dynamic = 'force-dynamic'
 
@@ -28,7 +28,26 @@ export async function GET(req: Request) {
     (upcoming.length ? `\n⏳ <b>Due in 3 days:</b>\n` + upcoming.map(r => `• ${r.title} (${r.due_date})`).join('\n') : '') +
     (!overdue.length && !upcoming.length ? `\n✅ Nothing due in the next 3 days.` : '')
 
+  // --- SalesMan section (GLCC add-on): below-target, low-activity & scoreboard ---
+  const LOW_CALLS = 20
+  const pctTo = (r: Rec) => {
+    const t = Number(r.amount || 0)
+    return t > 0 ? Math.round((Number(r.meta?.sales || 0) / t) * 100) : 0
+  }
+  const team = rows.filter(r => r.category === 'salesman')
+  let salesMsg = ''
+  if (team.length) {
+    const below = team.filter(r => pctTo(r) < 50)
+    const lowAct = team.filter(r => Number(r.meta?.calls || 0) < LOW_CALLS)
+    const board = [...team].sort((a, b) => pctTo(b) - pctTo(a))
+    salesMsg =
+      `\n\n👔 <b>SalesMan</b>` +
+      (below.length ? `\n🔻 <b>Below 50% target:</b>\n` + below.map(r => `• ${r.title} (${pctTo(r)}%)`).join('\n') : '') +
+      (lowAct.length ? `\n📞 <b>Low activity (under ${LOW_CALLS} calls):</b>\n` + lowAct.map(r => `• ${r.title} (${Number(r.meta?.calls || 0)} calls)`).join('\n') : '') +
+      `\n🏆 <b>Scoreboard:</b>\n` + board.map(r => `• ${r.title} — ${Number(r.meta?.calls || 0)} calls · ${pctTo(r)}%`).join('\n')
+  }
+
   const owner = process.env.OWNER_CHAT_ID?.trim()
-  if (owner) await sendMessage(owner, msg)
+  if (owner) await sendMessage(owner, msg + salesMsg)
   return Response.json({ ok: true, sent: !!owner })
 }

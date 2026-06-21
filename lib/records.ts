@@ -46,6 +46,6 @@ export const CLOSED = ['won', 'done', 'paid', 'lost']
 // content) don't pollute the deal/money/task numbers on the original tabs.
 export const DEAL_CATS = ['lead', 'invoice']            // Money + Pipeline + Dashboard "Pipeline RM"
 export const TASK_CATS = ['task']                       // (kept for reference)
-export const NEW_CATS  = ['project', 'contact', 'content'] // the tabs added at GLCC
+export const NEW_CATS  = ['project', 'contact', 'content', 'salesman'] // the tabs added at GLCC
 
 export const todayISO = () => new Date().toISOString().slice(0, 10)
