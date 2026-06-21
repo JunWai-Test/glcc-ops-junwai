@@ -123,6 +123,11 @@ code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0
 .btn:disabled { opacity: 0.6; cursor: default; }
 .brief { white-space: pre-wrap; background: var(--bg); border: 1px solid var(--border); border-radius: 10px; padding: 14px; margin: 14px 0 0; font-size: 13px; line-height: 1.6; color: var(--text); font-family: inherit; }
 
+/* Form controls — used by the Transcripts upload widget (additive; no other tab uses these).
+   16px font keeps iOS from auto-zooming; min-height 44px is a comfortable tap target. */
+.fld { background: var(--surface2); color: var(--text); border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; font-size: 16px; min-height: 44px; max-width: 100%; }
+.fld::file-selector-button { background: var(--bg); color: var(--text); border: 1px solid var(--border); border-radius: 6px; padding: 6px 10px; margin-right: 10px; cursor: pointer; font-size: 14px; }
+
 /* =========================================================================
    MOBILE (≤767px). Desktop styles above are untouched — everything phone-
    specific is scoped here, so the desktop layout stays byte-for-byte identical.
